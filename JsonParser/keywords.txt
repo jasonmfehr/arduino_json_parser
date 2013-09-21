@@ -1,0 +1,11 @@
+JsonParser	KEYWORD1
+addChar	KEYWORD2
+numFields	KEYWORD2
+fieldName	KEYWORD2
+fieldType	KEYWORD2
+getFieldString	KEYWORD2
+getFieldNumber	KEYWORD2
+getFieldStringArray	KEYWORD2
+getFieldNumberArray	KEYWORD2
+getArrayFieldLength	KEYWORD2
+
