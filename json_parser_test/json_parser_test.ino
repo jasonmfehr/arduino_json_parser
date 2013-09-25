@@ -1,3 +1,29 @@
+/*
+
+Copyright (C) 2013 Jason Fehr
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 3.
+
+This file contains basic tests for the JsonParser library.  These 
+tests must be executed on an arduino board.  Open the serial 
+monitor to see the results of the tests.  Failed tests may produce 
+inconsistent results because of the SRAM filling up.  A completely 
+successful test run will have the following two lines at the end 
+of the serial monitor output.
+
+Finished tests
+==================================================================
+
+*/
+
+/*
+TODO use flash (program) memory to store all strings to avoid issues 
+with memory filling up
+*/
+
+
 #include <LinkedList.h>
 #include <JsonParser.h>
 #include <avr/pgmspace.h>
