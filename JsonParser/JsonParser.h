@@ -7,80 +7,64 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, version 3.
 
 
-Implementation of a json parser that operates 
-on a stream of json data.  There are a few 
-limitations to what this parser can do.  It 
-cannot parse objects, booleans, nulls, objects, 
-or escaped charaters.  It also may have trouble 
-handling spaces outside of string values.  It 
-can parse numeric, string, numeric arrays, and 
-string arrays.
+Implementation of a json parser that operates on a stream of json 
+data.  There are a few limitations to what this parser can do.  It 
+cannot parse objects, booleans, nulls, objects, or escaped 
+charaters.  It also may have trouble handling spaces outside of 
+string values.  Spaces within field names are not supported.  It 
+can parse numeric, string, numeric arrays, and string arrays.
 
-Because of the arduino's limited exception handling, 
-most safety checks have been removed.  For example, 
-it will not complain if one of the getField functions 
-is called with an argument that is greater than the 
-number of fields.  Use carefully, you have been warned!
+Because of the arduino's limited exception handling, most safety 
+checks have been removed.  For example, it will not complain if 
+one of the getField functions is called with an argument that is 
+greater than the number of fields.  Use carefully, you have 
+been warned!
 
 */
 
-#ifndef JSON_PROC
-#define JSON_PROC
+
+#ifndef JSON_PARSE
+#define JSON_PARSE
 
 #include "LinkedList.h"
+#include "Arduino.h"
+
+//if something other than an int needs to be used to store numerbs, 
+//change this macro to the desired type
+#define NUMERIC_TYPE int
+
+//defines the type of variable used to store the number of fields
+//also determines the maximum number of fields that can be stored
+#define FIELD_INDEX_TYPE byte
+
+//defines the type of variable used to hold the number of items 
+//in an array therefore determines the upper bounds on parsed arrays
+#define ARRAY_LENGTH_TYPE byte
+
+//TODO: handle negative numbers
 
 #define JSON_DELIMETER '"'
 #define JSON_ARRAY_BEGIN '['
 #define JSON_ARRAY_END ']'
-#define ASCII_FIRST_NUMBER 48
-#define ASCII_LAST_NUMBER 57
+#define ASCII_ZERO 48
+#define ASCII_NINE 57
 
-enum JSON_TYPE {
-  JSON_STRING, 
-  JSON_NUMBER, 
-  JSON_STRING_ARRAY,
-  JSON_NUMBER_ARRAY
-};
+//definitions used for the internal tracking of types of JSON data
+#define JSON_STRING 0
+#define JSON_NUMBER 1
+#define JSON_STRING_ARRAY 2
+#define JSON_NUMBER_ARRAY 3
 
-enum JSON_PROCESSOR_INTERNAL_STATE {
-  JPIS_BETWEEN_FIELDS,
-  JPIS_BETWEEN_FIELD_NAME_VALUE,
-  JPIS_FIELD_NAME, 
-  JPIS_FIELD_VALUE_STRING,
-  JPIS_FIELD_VALUE_NUMBER,
-  JPIS_ARRAY_START,
-  JPIS_ARRAY_STRING,
-  JPIS_ARRAY_NUMBER
-};
+//definitions of the different internal states that the parser can be in
+#define JPIS_BETWEEN_FIELDS 0
+#define JPIS_BETWEEN_FIELD_NAME_VALUE 1
+#define JPIS_FIELD_NAME 2
+#define JPIS_FIELD_VALUE_STRING 3
+#define JPIS_FIELD_VALUE_NUMBER 4
+#define JPIS_ARRAY_START 5
+#define JPIS_ARRAY_STRING 6
+#define JPIS_ARRAY_NUMBER 7
 
-struct JSON_FIELD {
-  String fieldName;
-  void* fieldData;
-  JSON_TYPE fieldType;
-  
-  JSON_FIELD() {
-    fieldData = NULL;
-  }
-  
-  ~JSON_FIELD() {
-    if(fieldData != NULL){
-      switch(fieldType){
-        case JSON_STRING:
-          delete (String*) fieldData;
-          break;
-        case JSON_NUMBER:
-          delete (long*) fieldData;
-          break;
-        case JSON_STRING_ARRAY:
-          delete (LinkedList<String*>*) fieldData;
-          break;
-        case JSON_NUMBER_ARRAY:
-          delete (LinkedList<long*>*) fieldData;
-          break;
-      };
-    }
-  }
-};
 
 class JsonParser {
   
@@ -88,45 +72,80 @@ class JsonParser {
     JsonParser();
     ~JsonParser();
     void addChar(char);
-    int numFields();
-    String fieldName(int);
-    JSON_TYPE fieldType(int);
-    String getFieldString(int);
-    long getFieldNumber(int);
-    String* getFieldStringArray(int);
-    long* getFieldNumberArray(int);
-    int getArrayFieldLength(int);
+    FIELD_INDEX_TYPE numFields();
+    String fieldName(FIELD_INDEX_TYPE);
+    byte fieldType(FIELD_INDEX_TYPE);
+    String getFieldString(FIELD_INDEX_TYPE);
+    NUMERIC_TYPE getFieldNumber(FIELD_INDEX_TYPE);
+    String* getFieldStringArray(FIELD_INDEX_TYPE);
+    NUMERIC_TYPE* getFieldNumberArray(FIELD_INDEX_TYPE);
+    ARRAY_LENGTH_TYPE getArrayFieldLength(FIELD_INDEX_TYPE);
     
   private:
+    struct JSON_FIELD {
+      String fieldName;
+      void* fieldData;
+      byte fieldType;
+    
+      JSON_FIELD() {
+        fieldData = NULL;
+      }
+    
+      ~JSON_FIELD() {
+        if(fieldData != NULL){
+          switch(fieldType){
+            case JSON_STRING:
+              delete (String*) fieldData;
+              break;
+            case JSON_NUMBER:
+              delete (NUMERIC_TYPE*) fieldData;
+              break;
+            case JSON_STRING_ARRAY:
+              for(int i=0; i<((LinkedList<String*>*)fieldData)->numItems(); i++){
+                delete (String*)((LinkedList<String*>*)fieldData)->getValue(i);
+              }
+
+              delete (LinkedList<String*>*) fieldData;
+              break;
+            case JSON_NUMBER_ARRAY:
+              for(int i=0; i<((LinkedList<NUMERIC_TYPE*>*)fieldData)->numItems(); i++){
+                delete (NUMERIC_TYPE*)((LinkedList<NUMERIC_TYPE*>*)fieldData)->getValue(i);
+              }
+
+              delete (LinkedList<NUMERIC_TYPE*>*) fieldData;
+              break;
+          };
+        }
+      }
+    };
+
     void addField(JSON_FIELD*);
     void appendToCurrentString(char);
-    long* switchCurrentStringToNumber();
-    long* stringToNumber(String*);
-    int charToInt(char);
+    NUMERIC_TYPE* switchCurrentStringToNumber();
+    NUMERIC_TYPE* stringToNumber(String*);
+    byte charToInt(char);
     boolean isDigit(char);
     
-    JSON_PROCESSOR_INTERNAL_STATE _state;
-    JSON_PROCESSOR_INTERNAL_STATE _prevState;
+    byte _state;
     LinkedList<JSON_FIELD*> _fields;
     JSON_FIELD* _currentField;
     String* _tmpValue;
     LinkedList<String*>* _arrayValuesStr;
-    LinkedList<long*>* _arrayValuesNum;
+    LinkedList<NUMERIC_TYPE*>* _arrayValuesNum;
     boolean _inStr;
 };
 
 JsonParser::JsonParser() {
   _fields = LinkedList<JSON_FIELD*>();
   _state = JPIS_BETWEEN_FIELDS;
-  _prevState = JPIS_BETWEEN_FIELDS;
   _currentField = NULL;
   _tmpValue = NULL;
   _inStr = false;
 }
 
 JsonParser::~JsonParser() {
-  for(int i=0; i<_fields.numItems(); i++){
-    delete _fields[i];
+  for(FIELD_INDEX_TYPE i=0; i<_fields.numItems(); i++){
+    delete _fields.getValue(i);
   }
 }
 
@@ -134,7 +153,7 @@ void JsonParser::addChar(char c){
   LinkedList<JSON_FIELD> test = LinkedList<JSON_FIELD>();
   
   //ignore whitespace unless in a string field value
-  if(c == ' ' && _state != JPIS_FIELD_VALUE_STRING){
+  if(c == ' ' && _state != JPIS_FIELD_VALUE_STRING && !_inStr){
     return;
   }
   
@@ -199,7 +218,7 @@ void JsonParser::addChar(char c){
         _currentField->fieldType = JSON_NUMBER_ARRAY;
         _tmpValue = new String();
         *(String*)_tmpValue += c;
-        _arrayValuesNum = new LinkedList<long*>();
+        _arrayValuesNum = new LinkedList<NUMERIC_TYPE*>();
       }
       break;
     case JPIS_ARRAY_STRING:
@@ -236,55 +255,67 @@ void JsonParser::addChar(char c){
   
 }
 
-int JsonParser::numFields() {
+FIELD_INDEX_TYPE JsonParser::numFields() {
   return _fields.numItems();
 }
 
-String JsonParser::fieldName(int index) {
+String JsonParser::fieldName(FIELD_INDEX_TYPE index) {
   return _fields.getValue(index)->fieldName;
 }
 
-JSON_TYPE JsonParser::fieldType(int index) {
+byte JsonParser::fieldType(FIELD_INDEX_TYPE index) {
   return _fields.getValue(index)->fieldType;
 }
 
-String JsonParser::getFieldString(int field){
+String JsonParser::getFieldString(FIELD_INDEX_TYPE field){
   return *((String*)_fields.getValue(field)->fieldData);
 }
 
-long JsonParser::getFieldNumber(int field) {
-  return *((long*)_fields.getValue(field)->fieldData);
+NUMERIC_TYPE JsonParser::getFieldNumber(FIELD_INDEX_TYPE field) {
+  return *((NUMERIC_TYPE*)_fields.getValue(field)->fieldData);
 }
 
-String* JsonParser::getFieldStringArray(int field) {
+/*
+ * returns an array field as a string array
+ * since the return value is created by making a 
+ * deep copy of the array, the consumer is 
+ * responsible for deleting the returned array
+ */
+String* JsonParser::getFieldStringArray(FIELD_INDEX_TYPE field) {
   LinkedList<String*>* fieldData;
   String* str;
   
   fieldData = (LinkedList<String*>*)_fields.getValue(field)->fieldData;
   str = new String[fieldData->numItems()];
   
-  for(int i=0; i<fieldData->numItems(); i++){
+  for(FIELD_INDEX_TYPE i=0; i<fieldData->numItems(); i++){
     str[i] = *fieldData->getValue(i);
   }
   
   return str;
 }
 
-long* JsonParser::getFieldNumberArray(int field) {
-  LinkedList<long*>* fieldData;
-  long* longArr;
+/*
+ * returns an array field as a NUMERIC_TYPE array
+ * since the return value is created by making a 
+ * deep copy of the array, the consumer is 
+ * responsible for deleting the returned array
+ */
+NUMERIC_TYPE* JsonParser::getFieldNumberArray(FIELD_INDEX_TYPE field) {
+  LinkedList<NUMERIC_TYPE*>* fieldData;
+  NUMERIC_TYPE* arr;
   
-  fieldData = (LinkedList<long*>*)_fields.getValue(field)->fieldData;
-  longArr = new long[fieldData->numItems()];
+  fieldData = (LinkedList<NUMERIC_TYPE*>*)_fields.getValue(field)->fieldData;
+  arr = new NUMERIC_TYPE[fieldData->numItems()];
   
-  for(int i=0; i<fieldData->numItems(); i++){
-    longArr[i] = *fieldData->getValue(i);
+  for(FIELD_INDEX_TYPE i=0; i<fieldData->numItems(); i++){
+    arr[i] = *fieldData->getValue(i);
   }
   
-  return longArr;
+  return arr;
 }
 
-int JsonParser::getArrayFieldLength(int field) {
+ARRAY_LENGTH_TYPE JsonParser::getArrayFieldLength(FIELD_INDEX_TYPE field) {
   switch(_fields.getValue(field)->fieldType){
     case JSON_STRING_ARRAY:
     case JSON_NUMBER_ARRAY:
@@ -297,8 +328,7 @@ int JsonParser::getArrayFieldLength(int field) {
 }
 
 void JsonParser::addField(JSON_FIELD* field) {
-  //if(field != NULL){
-    Serial.print("Added field with name'");
+    /*Serial.print("Added field with name'");
     Serial.print(field->fieldName);
     Serial.println("'");
     Serial.print("And type/value: '");
@@ -310,7 +340,7 @@ void JsonParser::addField(JSON_FIELD* field) {
         break;
       case JSON_NUMBER:
         Serial.print("JSON_NUMBER'/'");
-        Serial.print(*(long*)field->fieldData);
+        Serial.print(*(NUMERIC_TYPE*)field->fieldData);
         Serial.println("'");
         break;
       case JSON_STRING_ARRAY:
@@ -320,7 +350,7 @@ void JsonParser::addField(JSON_FIELD* field) {
         Serial.println("JSON_NUMBER_ARRAY'");
         break;
     };
-  //}
+  */
   _fields.addItem(field);
 }
 
@@ -334,20 +364,20 @@ void JsonParser::appendToCurrentString(char c) {
 }
 
 /**
- * converts a number stored in the _currentField variables field data as a string to a long
+ * converts a number stored in the _currentField variables field data as a string to a NUMERIC_TYPE
  * 
- * returns long* - pointer to a long containing the numeric value of the input string
+ * returns NUMERIC_TYPE* - pointer to a NUMERIC_TYPE containing the numeric value of the input string
  */
-long* JsonParser::switchCurrentStringToNumber() {
+NUMERIC_TYPE* JsonParser::switchCurrentStringToNumber() {
   return stringToNumber((String*)_currentField->fieldData);
 }
 
 /**
  * converts a string to a number
  */
-long* JsonParser::stringToNumber(String* str) {
-  long* newNum = new long;
-  long multiplier = 1;
+NUMERIC_TYPE* JsonParser::stringToNumber(String* str) {
+  NUMERIC_TYPE* newNum = new NUMERIC_TYPE;
+  NUMERIC_TYPE multiplier = 1;
   boolean isNegative = false;
   int i;
   
@@ -375,11 +405,11 @@ long* JsonParser::stringToNumber(String* str) {
 }
 
 /*
- * provided a character that is a digit (does not verify input is a number), 
- * converts that character to an int
+ * takes a character that is a digit (does not verify input is a number), 
+ * converts that character to a byte
  */
-int JsonParser::charToInt(char c) {
-  return c - ASCII_FIRST_NUMBER;
+byte JsonParser::charToInt(char c) {
+  return c - ASCII_ZERO;
 }
 
 /*
@@ -387,7 +417,7 @@ int JsonParser::charToInt(char c) {
  * is a digit 0 through 9
  */
 boolean JsonParser::isDigit(char c) {
-  return ASCII_FIRST_NUMBER <= (int)c && (int)c <= ASCII_LAST_NUMBER;
+  return ASCII_ZERO <= (byte)c && (byte)c <= ASCII_NINE;
 }
 
 #endif
