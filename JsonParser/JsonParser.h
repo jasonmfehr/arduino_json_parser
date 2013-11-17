@@ -239,6 +239,7 @@ void JsonParser::addChar(char c){
       }else if(c == ']'){
         _arrayValuesStr->addItem(_tmpStr);
         _currentField->fieldData.stringArrayData = _arrayValuesStr->toArray();
+        _currentField->arrayLength = _arrayValuesStr->numItems();
         addField(_currentField);
         _state = JPIS_BETWEEN_FIELDS;
       }else if(c != '"' && _inStr){
@@ -255,6 +256,7 @@ void JsonParser::addChar(char c){
       }else if(c == ']'){
         _arrayValuesNum->addItem(_tmpNum);
         _currentField->fieldData.numberArrayData = _arrayValuesNum->toArray();
+        _currentField->arrayLength = _arrayValuesNum->numItems();
         addField(_currentField);
         _state = JPIS_BETWEEN_FIELDS;
       }else if(isDigit(c)){
