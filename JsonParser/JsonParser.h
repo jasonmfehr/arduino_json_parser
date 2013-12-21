@@ -70,14 +70,14 @@ class JsonParser {
     FIELD_INDEX_TYPE numFields();
     String fieldName(FIELD_INDEX_TYPE);
     NUMERIC_TYPE getFieldNumber(FIELD_INDEX_TYPE);
-    NUMERIC_TYPE** getFieldNumberArray(FIELD_INDEX_TYPE);
+    NUMERIC_TYPE* getFieldNumberArray(FIELD_INDEX_TYPE);
     ARRAY_LENGTH_TYPE getArrayFieldLength(FIELD_INDEX_TYPE);
     boolean isFieldArray(FIELD_INDEX_TYPE);
     
   private:
     union FIELD_DATA {
-      NUMERIC_TYPE* numberData;
-      NUMERIC_TYPE** numberArrayData;
+      NUMERIC_TYPE numberData;
+      NUMERIC_TYPE* numberArrayData;
     };
 
     struct JSON_FIELD {
@@ -93,24 +93,12 @@ class JsonParser {
       }
     
       ~JSON_FIELD() {
-Serial.println(F("JSON_FIELD dtor"));
-        switch(fieldType){
-          case JSON_NUMBER:
-            delete fieldData.numberData;
-            break;
-          case JSON_NUMBER_ARRAY:
-            for(int i=0; i<arrayLength; i++){
-Serial.print(F("Deleteing value: "));
-              delete (NUMERIC_TYPE*)fieldData.numberArrayData[i];
-            }
-
-            delete fieldData.numberArrayData;
-            break;
-        };
+        if(fieldType == JSON_NUMBER_ARRAY){
+          delete fieldData.numberArrayData;
+        }
       }
     };
 
-    void addField(JSON_FIELD*);
     byte charToNum(char);
     boolean isDigit(char);
     
@@ -118,7 +106,7 @@ Serial.print(F("Deleteing value: "));
     LinkedList<JSON_FIELD*> _fields;
     JSON_FIELD* _currentField;
     NUMERIC_TYPE* _tmpNum;
-    LinkedList<NUMERIC_TYPE*>* _arrayValuesNum;
+    LinkedList<NUMERIC_TYPE>* _arrayValuesNum;
     boolean _isNegative;
 };
 
@@ -129,15 +117,9 @@ JsonParser::JsonParser() {
 }
 
 JsonParser::~JsonParser() {
-Serial.println(F("starting dtor"));
-Serial.print(F("numItems: "));
-Serial.println(_fields.numItems());
   for(FIELD_INDEX_TYPE i=0; i<_fields.numItems(); i++){
-Serial.print(F("Deleting field: "));
-Serial.println(i);
     delete _fields.getValue(i);
   }
-Serial.println(F("ending dtor"));
 }
 
 void JsonParser::addChar(char c){
@@ -168,8 +150,7 @@ void JsonParser::addChar(char c){
         //current character being processed is a number, since there has not been a double quotes, 
         //the value of the current field being processed is numeric
         _currentField->fieldType = JSON_NUMBER;
-        _currentField->fieldData.numberData = new NUMERIC_TYPE;
-        *_currentField->fieldData.numberData = (NUMERIC_TYPE)charToNum(c);
+        _currentField->fieldData.numberData = (NUMERIC_TYPE)charToNum(c);
         _state = JPIS_FIELD_VALUE_NUMBER;
       }else if(c == '['){
         //current field being processed has an array value, the next character will determine the array type, 
@@ -180,19 +161,24 @@ void JsonParser::addChar(char c){
       break;
     case JPIS_FIELD_VALUE_NUMBER:
       if(c == ',' || c == '}'){
-        addField(_currentField);
+        if(_isNegative){
+          _currentField->fieldData.numberData *= -1;
+        }
+        _fields.addItem(_currentField);
         _state = JPIS_BETWEEN_FIELDS;
       }else if(isDigit(c)){
-        *_currentField->fieldData.numberData = *_currentField->fieldData.numberData * 10 + charToNum(c);
+        _currentField->fieldData.numberData = _currentField->fieldData.numberData * 10 + charToNum(c);
       }
       break;
     case JPIS_ARRAY_START:
       if(isDigit(c)){
         _state = JPIS_ARRAY_NUMBER;
         _currentField->fieldType = JSON_NUMBER_ARRAY;
-        _arrayValuesNum = new LinkedList<NUMERIC_TYPE*>();
+        _arrayValuesNum = new LinkedList<NUMERIC_TYPE>();
         _tmpNum = new NUMERIC_TYPE;
         *_tmpNum = (NUMERIC_TYPE)charToNum(c);
+      }else if(c == NEGATIVE_SIGN){
+        _isNegative = true;
       }
       break;
     case JPIS_ARRAY_NUMBER:
@@ -200,17 +186,20 @@ void JsonParser::addChar(char c){
         if(_isNegative){
           *_tmpNum *= -1;
         }
-        _arrayValuesNum->addItem(_tmpNum);
+        _arrayValuesNum->addItem(*_tmpNum);
+        delete _tmpNum;
         _tmpNum = new NUMERIC_TYPE;
         *_tmpNum = 0;
       }else if(c == ']'){
         if(_isNegative){
           *_tmpNum *= -1;
         }
-        _arrayValuesNum->addItem(_tmpNum);
+        _arrayValuesNum->addItem(*_tmpNum);
         _currentField->fieldData.numberArrayData = _arrayValuesNum->toArray();
         _currentField->arrayLength = _arrayValuesNum->numItems();
-        addField(_currentField);
+        delete _tmpNum;
+        delete _arrayValuesNum;
+        _fields.addItem(_currentField);
         _state = JPIS_BETWEEN_FIELDS;
       }else if(isDigit(c)){
         *_tmpNum = *_tmpNum * 10 + charToNum(c);
@@ -231,10 +220,10 @@ String JsonParser::fieldName(FIELD_INDEX_TYPE index) {
 }
 
 NUMERIC_TYPE JsonParser::getFieldNumber(FIELD_INDEX_TYPE field) {
-  return *(_fields.getValue(field)->fieldData.numberData);
+  return _fields.getValue(field)->fieldData.numberData;
 }
 
-NUMERIC_TYPE** JsonParser::getFieldNumberArray(FIELD_INDEX_TYPE field) {
+NUMERIC_TYPE* JsonParser::getFieldNumberArray(FIELD_INDEX_TYPE field) {
   return _fields.getValue(field)->fieldData.numberArrayData;
 }
 
@@ -247,24 +236,6 @@ ARRAY_LENGTH_TYPE JsonParser::getArrayFieldLength(FIELD_INDEX_TYPE field) {
       return 0;
       break;
   };
-}
-
-void JsonParser::addField(JSON_FIELD* field) {
-    /*Serial.print("Added field with name'");
-    Serial.print(field->fieldName);
-    Serial.println("'");
-    Serial.print("And type/value: '");*/
-    switch(field->fieldType){
-      case JSON_NUMBER:
-        /*Serial.print("JSON_NUMBER'/'");
-        Serial.print(*(field->fieldData.numberData));
-        Serial.println("'");*/
-        break;
-      case JSON_NUMBER_ARRAY:
-        //Serial.println("JSON_NUMBER_ARRAY'");
-        break;
-    };
-  _fields.addItem(field);
 }
 
 /*
