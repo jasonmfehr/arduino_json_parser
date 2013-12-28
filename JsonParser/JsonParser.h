@@ -199,6 +199,10 @@ ARRAY_LENGTH_TYPE JsonParser::getArrayFieldLength(FIELD_INDEX_TYPE field) {
   };
 }
 
+boolean JsonParser::isFieldArray(FIELD_INDEX_TYPE field) {
+  return _fields.getValue(field)->fieldType == JSON_NUMBER_ARRAY;
+}
+
 /*
  * takes a character that is a digit (does not verify input is a number), 
  * converts that character to a byte equal to the character's digit value

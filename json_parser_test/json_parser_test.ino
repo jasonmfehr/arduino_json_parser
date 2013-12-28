@@ -37,9 +37,9 @@ prog_uchar JSON_ONE_NUM[] PROGMEM = {"{\"numfield\":5}"};
 prog_uchar JSON_ONE_NUM_NEGATIVE[] PROGMEM = {"{\"negfield\":-42}"};
 prog_uchar JSON_NUM_ARRAY_NEGATIVE[] PROGMEM = {"{\"one\":[-123,-6734 , -9435]}"};
 prog_uchar JSON_THREE_NUM[] PROGMEM = {"{\"one\":5,\"two\":42,\"three\":513}"};
-prog_uchar JSON_ARRAY_THEN_NUM[] PROGMEM = {"{\"one\":[54,62,1],\"two\":42}"};
+prog_uchar JSON_ARRAY_THEN_NUM[] PROGMEM = {"{\"one\":[54,-62,1],\"two\":42}"};
 prog_uchar JSON_ARRAY_NUM_ARRAY[] PROGMEM = {"{\"one\":[54,62,1],\"two\":42, \"three\":[51,100]}"};
-prog_uint16_t ARR_LEN[] PROGMEM = {55, 14, 16, 28, 30, 26, 44};
+prog_uint16_t ARR_LEN[] PROGMEM = {55, 14, 16, 28, 30, 27, 44};
 
 prog_uchar TEST_CASE_1_NAME[] PROGMEM = {"numberArray"};
 prog_uchar TEST_CASE_2_NAME[] PROGMEM = {"oneNumber"};
@@ -63,7 +63,7 @@ void setup() {
   printFM();
   testOneNumberNegative();
   printFM();
-  //testNumberArrayNegative();
+  testNumberArrayNegative();
   printFM();
   testThreeNumbers();
   printFM();
@@ -90,55 +90,61 @@ void testNumberArray() {
     success = assertEquals(2, "one", fixture->fieldName(0));
   }
   if(success){
-    success = assertEquals(3, (byte)4, fixture->getArrayFieldLength(0));
+    success = assertEquals(3, (boolean)true, fixture->isFieldArray(0));
+  }
+  if(success){
+    success = assertEquals(4, (byte)4, fixture->getArrayFieldLength(0));
   }
   
   if(success){
     arr = fixture->getFieldNumberArray(0);
 
     if(success){
-      success = assertEquals(4, 123, arr[0]);
+      success = assertEquals(5, 123, arr[0]);
     }
     if(success){
-      success = assertEquals(5, 6734, arr[1]);
+      success = assertEquals(6, 6734, arr[1]);
     }
     if(success){
-      success = assertEquals(6, 5, arr[2]);
+      success = assertEquals(7, 5, arr[2]);
     }
     if(success){
-      success = assertEquals(7, 9435, arr[3]);
+      success = assertEquals(8, 9435, arr[3]);
     }
   }
   
   if(success){
-    success = assertEquals(8, "two", fixture->fieldName(1));
+    success = assertEquals(9, "two", fixture->fieldName(1));
   }
   if(success){
-    success = assertEquals(9, (byte)7, fixture->getArrayFieldLength(1));
+    success = assertEquals(10, (boolean)true, fixture->isFieldArray(1));
+  }
+  if(success){
+    success = assertEquals(11, (byte)7, fixture->getArrayFieldLength(1));
   }
 
   if(success){
     arr = fixture->getFieldNumberArray(1);
     if(success){
-      success = assertEquals(10, 54, arr[0]);
+      success = assertEquals(12, 54, arr[0]);
     }
     if(success){
-      success = assertEquals(11, 78, arr[1]);
+      success = assertEquals(13, 78, arr[1]);
     }
     if(success){
-      success = assertEquals(12, 92, arr[2]);
+      success = assertEquals(14, 92, arr[2]);
     }
     if(success){
-      success = assertEquals(13, 34, arr[3]);
+      success = assertEquals(15, 34, arr[3]);
     }
     if(success){
-      success = assertEquals(14, 56, arr[4]);
+      success = assertEquals(16, 56, arr[4]);
     }
     if(success){
-      success = assertEquals(15, 82, arr[5]);
+      success = assertEquals(17, 82, arr[5]);
     }
     if(success){
-      success = assertEquals(16, 724, arr[6]);
+      success = assertEquals(18, 724, arr[6]);
     }
   }
   
@@ -161,6 +167,9 @@ void testOneNumber() {
   if(success){
     success = assertEquals(3, 5, fixture->getFieldNumber(0));
   }
+  if(success){
+    success = assertEquals(4, (boolean)false, fixture->isFieldArray(0));
+  }
   
   delete fixture;
   finish(TEST_CASE_2_NAME, TEST_CASE_NAME_LEN[1], success);
@@ -181,6 +190,9 @@ void testOneNumberNegative() {
   if(success){
     success = assertEquals(3, -42, fixture->getFieldNumber(0));
   }
+  if(success){
+    success = assertEquals(4, (boolean)false, fixture->isFieldArray(0));
+  }
   
   delete fixture;
   finish(TEST_CASE_3_NAME, TEST_CASE_NAME_LEN[2], success);
@@ -199,20 +211,23 @@ void testNumberArrayNegative() {
     success = assertEquals(2, "one", fixture->fieldName(0));
   }
   if(success){
-    success = assertEquals(3, (byte)3, fixture->getArrayFieldLength(0));
+    success = assertEquals(3, (boolean)true, fixture->isFieldArray(0));
+  }
+  if(success){
+    success = assertEquals(4, (byte)3, fixture->getArrayFieldLength(0));
   }
   
   if(success){
     arr = fixture->getFieldNumberArray(0);
 
     if(success){
-      success = assertEquals(4, -123, arr[0]);
+      success = assertEquals(5, -123, arr[0]);
     }
     if(success){
-      success = assertEquals(5, -6734, arr[1]);
+      success = assertEquals(6, -6734, arr[1]);
     }
     if(success){
-      success = assertEquals(6, -9435, arr[2]);
+      success = assertEquals(7, -9435, arr[2]);
     }
   }
   
@@ -235,19 +250,28 @@ void testThreeNumbers() {
   if(success){
     success = assertEquals(3, 5, fixture->getFieldNumber(0));
   }
-  
   if(success){
-    success = assertEquals(4, "two", fixture->fieldName(1));
-  }
-  if(success){
-    success = assertEquals(5, 42, fixture->getFieldNumber(1));
+    success = assertEquals(4, (boolean)false, fixture->isFieldArray(0));
   }
   
   if(success){
-    success = assertEquals(6, "three", fixture->fieldName(2));
+    success = assertEquals(5, "two", fixture->fieldName(1));
   }
   if(success){
-    success = assertEquals(7, 513, fixture->getFieldNumber(2));
+    success = assertEquals(6, 42, fixture->getFieldNumber(1));
+  }
+  if(success){
+    success = assertEquals(7, (boolean)false, fixture->isFieldArray(1));
+  }
+  
+  if(success){
+    success = assertEquals(8, "three", fixture->fieldName(2));
+  }
+  if(success){
+    success = assertEquals(9, 513, fixture->getFieldNumber(2));
+  }
+  if(success){
+    success = assertEquals(10, (boolean)false, fixture->isFieldArray(2));
   }
   
   delete fixture;
@@ -268,28 +292,34 @@ void testArrayThenNum() {
     success = assertEquals(2, "one", fixture->fieldName(0));
   }
   if(success){
-    success = assertEquals(3, (byte)3, fixture->getArrayFieldLength(0));
+    success = assertEquals(3, (boolean)true, fixture->isFieldArray(0));
+  }
+  if(success){
+    success = assertEquals(4, (byte)3, fixture->getArrayFieldLength(0));
   }
   
   if(success){
     arr = fixture->getFieldNumberArray(0);
 
     if(success){
-      success = assertEquals(4, 54, arr[0]);
+      success = assertEquals(5, 54, arr[0]);
     }
     if(success){
-      success = assertEquals(5, 62, arr[1]);
+      success = assertEquals(6, -62, arr[1]);
     }
     if(success){
-      success = assertEquals(6, 1, arr[2]);
+      success = assertEquals(7, 1, arr[2]);
     }
   }
   
   if(success){
-    success = assertEquals(7, "two", fixture->fieldName(1));
+    success = assertEquals(8, "two", fixture->fieldName(1));
   }
   if(success){
-    success = assertEquals(8, 42, fixture->getFieldNumber(1));
+    success = assertEquals(9, 42, fixture->getFieldNumber(1));
+  }
+  if(success){
+    success = assertEquals(10, (boolean)false, fixture->isFieldArray(1));
   }
   
   delete fixture;
@@ -310,45 +340,54 @@ void testArrayNumArray() {
     success = assertEquals(2, "one", fixture->fieldName(0));
   }
   if(success){
-    success = assertEquals(3, (byte)3, fixture->getArrayFieldLength(0));
+    success = assertEquals(3, (boolean)true, fixture->isFieldArray(0));
+  }
+  if(success){
+    success = assertEquals(4, (byte)3, fixture->getArrayFieldLength(0));
   }
   
   if(success){
     arr = fixture->getFieldNumberArray(0);
 
     if(success){
-      success = assertEquals(4, 54, arr[0]);
+      success = assertEquals(5, 54, arr[0]);
     }
     if(success){
-      success = assertEquals(5, 62, arr[1]);
+      success = assertEquals(6, 62, arr[1]);
     }
     if(success){
-      success = assertEquals(6, 1, arr[2]);
+      success = assertEquals(7, 1, arr[2]);
     }
   }
   
   if(success){
-    success = assertEquals(7, "two", fixture->fieldName(1));
+    success = assertEquals(8, "two", fixture->fieldName(1));
   }
   if(success){
-    success = assertEquals(8, 42, fixture->getFieldNumber(1));
+    success = assertEquals(9, 42, fixture->getFieldNumber(1));
+  }
+  if(success){
+    success = assertEquals(10, (boolean)false, fixture->isFieldArray(1));
   }
   
   if(success){
-    success = assertEquals(9, "three", fixture->fieldName(2));
+    success = assertEquals(11, "three", fixture->fieldName(2));
   }
   if(success){
-    success = assertEquals(10, (byte)2, fixture->getArrayFieldLength(2));
+    success = assertEquals(12, (byte)2, fixture->getArrayFieldLength(2));
+  }
+  if(success){
+    success = assertEquals(13, (boolean)true, fixture->isFieldArray(2));
   }
   
   if(success){
     arr = fixture->getFieldNumberArray(2);
 
     if(success){
-      success = assertEquals(11, 51, arr[0]);
+      success = assertEquals(14, 51, arr[0]);
     }
     if(success){
-      success = assertEquals(12, 100, arr[1]);
+      success = assertEquals(15, 100, arr[1]);
     }
   }
   
@@ -433,6 +472,7 @@ boolean assertEquals(int stepNum, String expected, String actual) {
     result = true;
   }
 }
+
 
 JsonParser* buildJsonParser(prog_uchar* str, int len) {
   JsonParser* jp = new JsonParser();
