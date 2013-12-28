@@ -36,13 +36,19 @@ prog_uchar JSON_NUM_ARRAY[] PROGMEM = {"{\"one\":[123,6734,5,9435],\"two\":[54,7
 prog_uchar JSON_ONE_NUM[] PROGMEM = {"{\"numfield\":5}"};
 prog_uchar JSON_ONE_NUM_NEGATIVE[] PROGMEM = {"{\"negfield\":-42}"};
 prog_uchar JSON_NUM_ARRAY_NEGATIVE[] PROGMEM = {"{\"one\":[-123,-6734 , -9435]}"};
-prog_uint16_t ARR_LEN[] PROGMEM = {55, 14, 16, 28};
+prog_uchar JSON_THREE_NUM[] PROGMEM = {"{\"one\":5,\"two\":42,\"three\":513}"};
+prog_uchar JSON_ARRAY_THEN_NUM[] PROGMEM = {"{\"one\":[54,62,1],\"two\":42}"};
+prog_uchar JSON_ARRAY_NUM_ARRAY[] PROGMEM = {"{\"one\":[54,62,1],\"two\":42, \"three\":[51,100]}"};
+prog_uint16_t ARR_LEN[] PROGMEM = {55, 14, 16, 28, 30, 26, 44};
 
 prog_uchar TEST_CASE_1_NAME[] PROGMEM = {"numberArray"};
 prog_uchar TEST_CASE_2_NAME[] PROGMEM = {"oneNumber"};
 prog_uchar TEST_CASE_3_NAME[] PROGMEM = {"oneNumberNegative"};
 prog_uchar TEST_CASE_4_NAME[] PROGMEM = {"numberArrayNegative"};
-prog_uint16_t TEST_CASE_NAME_LEN[] PROGMEM = {11, 9, 17, 19};
+prog_uchar TEST_CASE_5_NAME[] PROGMEM = {"threeNumbers"};
+prog_uchar TEST_CASE_6_NAME[] PROGMEM = {"arrayThenNum"};
+prog_uchar TEST_CASE_7_NAME[] PROGMEM = {"arrayNumArray"};
+prog_uint16_t TEST_CASE_NAME_LEN[] PROGMEM = {11, 9, 17, 19, 12, 12, 13};
 
 
 void setup() {
@@ -57,7 +63,13 @@ void setup() {
   printFM();
   testOneNumberNegative();
   printFM();
-  testNumberArrayNegative();
+  //testNumberArrayNegative();
+  printFM();
+  testThreeNumbers();
+  printFM();
+  testArrayThenNum();
+  printFM();
+  testArrayNumArray();
   printFM();
   Serial.println(F("Finished tests"));
   Serial.println(F("=================================================================="));
@@ -208,6 +220,143 @@ void testNumberArrayNegative() {
   finish(TEST_CASE_1_NAME, TEST_CASE_NAME_LEN[0], success);
 }
 
+void testThreeNumbers() {
+  JsonParser* fixture;
+  boolean success;
+  
+  start(TEST_CASE_5_NAME, TEST_CASE_NAME_LEN[4]);
+  
+  fixture = buildJsonParser(JSON_THREE_NUM, pgm_read_word_near(ARR_LEN + 4));
+  success = assertEquals(1, (byte)3, fixture->numFields());
+  
+  if(success){
+    success = assertEquals(2, "one", fixture->fieldName(0));
+  }
+  if(success){
+    success = assertEquals(3, 5, fixture->getFieldNumber(0));
+  }
+  
+  if(success){
+    success = assertEquals(4, "two", fixture->fieldName(1));
+  }
+  if(success){
+    success = assertEquals(5, 42, fixture->getFieldNumber(1));
+  }
+  
+  if(success){
+    success = assertEquals(6, "three", fixture->fieldName(2));
+  }
+  if(success){
+    success = assertEquals(7, 513, fixture->getFieldNumber(2));
+  }
+  
+  delete fixture;
+  finish(TEST_CASE_5_NAME, TEST_CASE_NAME_LEN[4], success);
+}
+
+void testArrayThenNum() {
+  JsonParser* fixture;
+  boolean success;
+  NUMERIC_TYPE* arr;
+  
+  start(TEST_CASE_6_NAME, TEST_CASE_NAME_LEN[5]);
+  
+  fixture = buildJsonParser(JSON_ARRAY_THEN_NUM, pgm_read_word_near(ARR_LEN + 5));
+  success = assertEquals(1, (byte)2, fixture->numFields());
+  
+  if(success){
+    success = assertEquals(2, "one", fixture->fieldName(0));
+  }
+  if(success){
+    success = assertEquals(3, (byte)3, fixture->getArrayFieldLength(0));
+  }
+  
+  if(success){
+    arr = fixture->getFieldNumberArray(0);
+
+    if(success){
+      success = assertEquals(4, 54, arr[0]);
+    }
+    if(success){
+      success = assertEquals(5, 62, arr[1]);
+    }
+    if(success){
+      success = assertEquals(6, 1, arr[2]);
+    }
+  }
+  
+  if(success){
+    success = assertEquals(7, "two", fixture->fieldName(1));
+  }
+  if(success){
+    success = assertEquals(8, 42, fixture->getFieldNumber(1));
+  }
+  
+  delete fixture;
+  finish(TEST_CASE_6_NAME, TEST_CASE_NAME_LEN[5], success);
+}
+
+void testArrayNumArray() {
+  JsonParser* fixture;
+  boolean success;
+  NUMERIC_TYPE* arr;
+  
+  start(TEST_CASE_7_NAME, TEST_CASE_NAME_LEN[6]);
+  
+  fixture = buildJsonParser(JSON_ARRAY_NUM_ARRAY, pgm_read_word_near(ARR_LEN + 6));
+  success = assertEquals(1, (byte)3, fixture->numFields());
+  
+  if(success){
+    success = assertEquals(2, "one", fixture->fieldName(0));
+  }
+  if(success){
+    success = assertEquals(3, (byte)3, fixture->getArrayFieldLength(0));
+  }
+  
+  if(success){
+    arr = fixture->getFieldNumberArray(0);
+
+    if(success){
+      success = assertEquals(4, 54, arr[0]);
+    }
+    if(success){
+      success = assertEquals(5, 62, arr[1]);
+    }
+    if(success){
+      success = assertEquals(6, 1, arr[2]);
+    }
+  }
+  
+  if(success){
+    success = assertEquals(7, "two", fixture->fieldName(1));
+  }
+  if(success){
+    success = assertEquals(8, 42, fixture->getFieldNumber(1));
+  }
+  
+  if(success){
+    success = assertEquals(9, "three", fixture->fieldName(2));
+  }
+  if(success){
+    success = assertEquals(10, (byte)2, fixture->getArrayFieldLength(2));
+  }
+  
+  if(success){
+    arr = fixture->getFieldNumberArray(2);
+
+    if(success){
+      success = assertEquals(11, 51, arr[0]);
+    }
+    if(success){
+      success = assertEquals(12, 100, arr[1]);
+    }
+  }
+  
+  delete fixture;
+  finish(TEST_CASE_7_NAME, TEST_CASE_NAME_LEN[6], success);
+}
+
+
 void start(prog_uchar* testCaseName, int len) {
   Serial.print(F("Starting test case ["));
   printProgStr(testCaseName, len);
@@ -291,8 +440,8 @@ JsonParser* buildJsonParser(prog_uchar* str, int len) {
   Serial.print(F("JSON: "));
 
   for(int i=0; i<len; i++){
-    jp->addChar((char)pgm_read_byte(str + i));
     Serial.print((char)pgm_read_byte_near(str + i));
+    jp->addChar((char)pgm_read_byte(str + i));
   }
 
   Serial.println();

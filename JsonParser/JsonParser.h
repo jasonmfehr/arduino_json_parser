@@ -8,10 +8,11 @@ the Free Software Foundation, version 3.
 
 
 Partial implementation of a json parser that operations on a 
-stream of json data.  This parse can only parse number and 
-number array values.  Both positive (no prefixed sign) or 
+stream of json data.  This parse can only parse whole numbers and 
+whole number array values.  Both positive (no prefixed sign) or 
 negative (prefixed minus sign) are handled.  It cannot handle 
-nulls, booleans, strings, objects, or spaces within field names.  
+nulls, booleans, strings, objects, floats, doubles, or spaces 
+within field names.  Field names must be surrounded with double quotes.
 
 Because of the arduino's limited exception handling, most safety 
 checks have been removed.  For example, it will not complain if 
@@ -40,9 +41,11 @@ been warned!
 //in an array therefore determines the upper bounds on parsed arrays
 #define ARRAY_LENGTH_TYPE byte
 
-#define JSON_DELIMETER '"'
+#define JSON_FIELDNAME_DELIMETER '"'
+#define JSON_FIELD_DELIMETER ','
 #define JSON_ARRAY_BEGIN '['
 #define JSON_ARRAY_END ']'
+#define JSON_END '}'
 #define ASCII_ZERO 48
 #define ASCII_NINE 57
 #define NEGATIVE_SIGN '-'
@@ -52,13 +55,11 @@ been warned!
 #define JSON_NUMBER_ARRAY 3
 
 //definitions of the different internal states that the parser can be in
-#define JPIS_BETWEEN_FIELDS 0
-#define JPIS_BETWEEN_FIELD_NAME_VALUE 1
-#define JPIS_FIELD_NAME 2
-#define JPIS_FIELD_VALUE_STRING 3
-#define JPIS_FIELD_VALUE_NUMBER 4
-#define JPIS_ARRAY_START 5
-#define JPIS_ARRAY_NUMBER 7
+#define STATE_UNDEFINED 0
+#define STATE_PARSING_FIELD_NAME 1
+#define STATE_PARSING_ARRAY 2
+#define STATE_PARSING_NUMBER 3
+#define STATE_AFTER_ARRAY 4
 
 
 class JsonParser {
@@ -101,6 +102,8 @@ class JsonParser {
 
     byte charToNum(char);
     boolean isDigit(char);
+    void startCurrentNumber();
+    void finishCurrentNumber();
     
     byte _state;
     LinkedList<JSON_FIELD*> _fields;
@@ -112,8 +115,7 @@ class JsonParser {
 
 JsonParser::JsonParser() {
   _fields = LinkedList<JSON_FIELD*>();
-  _state = JPIS_BETWEEN_FIELDS;
-  _currentField = NULL;
+  _state = STATE_UNDEFINED;
 }
 
 JsonParser::~JsonParser() {
@@ -129,86 +131,45 @@ void JsonParser::addChar(char c){
   if(c == ' '){
     return;
   }
-  
-  switch(_state){
-    case JPIS_BETWEEN_FIELDS:
-      if(c == '"'){
-        _currentField = new JSON_FIELD;
-        _state = JPIS_FIELD_NAME;
-        _isNegative = false;
-      }
-      break;
-    case JPIS_FIELD_NAME:
-      if(c == '"'){
-        _state = JPIS_BETWEEN_FIELD_NAME_VALUE;
-      }else{
-        _currentField->fieldName += c;
-      }
-      break;
-    case JPIS_BETWEEN_FIELD_NAME_VALUE:
-      if(isDigit(c)){
-        //current character being processed is a number, since there has not been a double quotes, 
-        //the value of the current field being processed is numeric
-        _currentField->fieldType = JSON_NUMBER;
-        _currentField->fieldData.numberData = (NUMERIC_TYPE)charToNum(c);
-        _state = JPIS_FIELD_VALUE_NUMBER;
-      }else if(c == '['){
-        //current field being processed has an array value, the next character will determine the array type, 
-        _state = JPIS_ARRAY_START;
-      }else if(c == NEGATIVE_SIGN){
-        _isNegative = true;
-      }
-      break;
-    case JPIS_FIELD_VALUE_NUMBER:
-      if(c == ',' || c == '}'){
-        if(_isNegative){
-          _currentField->fieldData.numberData *= -1;
-        }
-        _fields.addItem(_currentField);
-        _state = JPIS_BETWEEN_FIELDS;
-      }else if(isDigit(c)){
-        _currentField->fieldData.numberData = _currentField->fieldData.numberData * 10 + charToNum(c);
-      }
-      break;
-    case JPIS_ARRAY_START:
-      if(isDigit(c)){
-        _state = JPIS_ARRAY_NUMBER;
-        _currentField->fieldType = JSON_NUMBER_ARRAY;
-        _arrayValuesNum = new LinkedList<NUMERIC_TYPE>();
-        _tmpNum = new NUMERIC_TYPE;
-        *_tmpNum = (NUMERIC_TYPE)charToNum(c);
-      }else if(c == NEGATIVE_SIGN){
-        _isNegative = true;
-      }
-      break;
-    case JPIS_ARRAY_NUMBER:
-      if(c == ','){
-        if(_isNegative){
-          *_tmpNum *= -1;
-        }
-        _arrayValuesNum->addItem(*_tmpNum);
-        delete _tmpNum;
-        _tmpNum = new NUMERIC_TYPE;
-        *_tmpNum = 0;
-      }else if(c == ']'){
-        if(_isNegative){
-          *_tmpNum *= -1;
-        }
-        _arrayValuesNum->addItem(*_tmpNum);
-        _currentField->fieldData.numberArrayData = _arrayValuesNum->toArray();
-        _currentField->arrayLength = _arrayValuesNum->numItems();
-        delete _tmpNum;
-        delete _arrayValuesNum;
-        _fields.addItem(_currentField);
-        _state = JPIS_BETWEEN_FIELDS;
-      }else if(isDigit(c)){
-        *_tmpNum = *_tmpNum * 10 + charToNum(c);
-      }else if(c == NEGATIVE_SIGN){
-        _isNegative = true;
-      }
-      break;
-  };
-  
+
+  if(c == JSON_FIELDNAME_DELIMETER){
+    //field name is either starting or stopping
+    if(_state != STATE_PARSING_FIELD_NAME){
+      //new field detected
+      _currentField = new JSON_FIELD;
+      _state = STATE_PARSING_FIELD_NAME;
+      startCurrentNumber();
+    }else if(_state == STATE_PARSING_FIELD_NAME){
+      //field name is done being parsed, assume the field is a number
+      _state = STATE_PARSING_NUMBER;
+    }
+  }else if(_state == STATE_PARSING_FIELD_NAME){
+    _currentField->fieldName += c;
+  }else if(c == JSON_ARRAY_BEGIN){
+    //starting an array
+    _state = STATE_PARSING_ARRAY;
+    _arrayValuesNum = new LinkedList<NUMERIC_TYPE>();
+    _currentField->fieldType = JSON_NUMBER_ARRAY;
+  }else if(c == JSON_ARRAY_END){
+    //finishing an array
+    finishCurrentNumber();
+    _currentField->fieldData.numberArrayData = _arrayValuesNum->toArray();
+    _currentField->arrayLength = _arrayValuesNum->numItems();
+    delete _arrayValuesNum;
+    _fields.addItem(_currentField);
+    _state = STATE_AFTER_ARRAY;
+  }else if(c == JSON_FIELD_DELIMETER && _state != STATE_AFTER_ARRAY){
+    finishCurrentNumber();
+    if(_state == STATE_PARSING_ARRAY){
+      startCurrentNumber();
+    }
+  }else if(c == JSON_END && _state != STATE_AFTER_ARRAY){
+    finishCurrentNumber();
+  }else if(c == NEGATIVE_SIGN){
+    _isNegative = true;
+  }else if(isDigit(c)){
+    *_tmpNum = *_tmpNum * 10 + charToNum(c);
+  }
 }
 
 FIELD_INDEX_TYPE JsonParser::numFields() {
@@ -233,14 +194,14 @@ ARRAY_LENGTH_TYPE JsonParser::getArrayFieldLength(FIELD_INDEX_TYPE field) {
       return _fields.getValue(field)->arrayLength;
       break;
     default:
-      return 0;
+      return -1;
       break;
   };
 }
 
 /*
  * takes a character that is a digit (does not verify input is a number), 
- * converts that character to a byte
+ * converts that character to a byte equal to the character's digit value
  */
 byte JsonParser::charToNum(char c) {
   return c - ASCII_ZERO;
@@ -252,6 +213,27 @@ byte JsonParser::charToNum(char c) {
  */
 boolean JsonParser::isDigit(char c) {
   return ASCII_ZERO <= (byte)c && (byte)c <= ASCII_NINE;
+}
+
+void JsonParser::startCurrentNumber() {
+  _isNegative = false;
+  _tmpNum = new NUMERIC_TYPE;
+  *_tmpNum = 0;
+}
+
+void JsonParser::finishCurrentNumber() {
+  if(_isNegative){
+    *_tmpNum *= -1;
+  }
+
+  if(_state == STATE_PARSING_ARRAY){
+    _arrayValuesNum->addItem(*_tmpNum);
+  }else{
+    _currentField->fieldData.numberData = *_tmpNum;
+    _fields.addItem(_currentField);
+  }
+ 
+  delete _tmpNum;
 }
 
 #endif
